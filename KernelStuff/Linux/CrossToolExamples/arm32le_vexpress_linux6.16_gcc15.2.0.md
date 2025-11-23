@@ -1,4 +1,4 @@
-# ARM 32 LE vexpress Build (ct-ng and Buildroot)
+# ARM 32 LE vexpress Linux 6.16 Build
 
 The goal is to build a cross-compilation toolchain for Arm32 LE cortex-a9 with crosstool-ng. Then, to build a Linux 6.16 kernel for an emulated vexpress board. Finally, to build a simple rootfs for that kernel with buildroot  
 

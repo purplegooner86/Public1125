@@ -1,6 +1,6 @@
-# Mips 32 BE Malta Linux 2.6.32 Build
+# Arm 32 LE versatilepb Linux 2.6.32 Build
 
-The goal is to build a cross-compilation toolchain for MIPS32 with crosstool-ng. Then, to build a Linux 2.6 kernel for a a MIPS32 Malta board with that toolchain. Finally, to build a simple rootfs for that kernel with buildroot and emulate it with qemu  
+The goal is to build a cross-compilation toolchain for Arm32 LE cortex-a9 with crosstool-ng. Then, to build a Linux 6.16 kernel for an emulated vexpress board. Finally, to build a simple rootfs for that kernel with buildroot  
 
 This was all done in an Ubuntu 22.04 VM  
 
@@ -69,53 +69,37 @@ tar -xvf linux-2.6.32.16.tar
 Building toolchain:
 ```sh
 cd ~/Documents
-mkdir mips_malta_ctng_build
-cd mips_malta_ctng_build
+mkdir arm_linux_2.6_ctng_build
+cd arm_linux_2.6_ctng_build
 
 export PATH=$HOME/x-tools/bin:$PATH
 
-ls -la ~/x-tools/lib/ct-ng.1.21.0/samples/ | grep malta
-ct-ng mips-malta-linux-gnu
+ls -la ~/x-tools-1.21/lib/ct-ng.1.21.0/samples | grep arm
+
+ct-ng arm-unknown-linux-gnueabi
 ct-ng menuconfig
 ```
 
+ftp.gnu.org was in a good mood when I was doing this so I didn't have to use a mirror  
+
+See [mips32be_malta_linux2.6_gcc4.6.3.md](./mips32be_malta_linux2.6_gcc4.6.3.md) for menuconfig changes and instructions for mirror use  
+
 Menuconfig changes:
 ```
-Paths and misc options > [*] Use a mirror
-Paths and misc options > [*] Only use a mirror
-(https://mirrors.ocf.berkeley.edu/gnu) Base URL
 Operating System > Linux kernel version (custom tarball or directory)
 Operating System > Path to custom source... **Put path to kernel src
 Binary utilities > binutils version (2.24)
+Binary utilities > Linkers to enable (ld)
 C-library > C library (glibc)
 C-library > glibc version (2.10.1)
 C compiler > gcc version (4.3.6)
-Debug facilities > [] gdb (** unselect it...)
+Debug facilities > (** Unselect all of them)
 ```
-
-If you don't use a mirror it will attempt to download everything from ftp.gnu.org which is prohibitively slow  
-
-Unfortunately, using a mirror means we will be required to do a bit of extra work getting the tarballs to download correctly...
 
 Build:  
 ```sh
 ct-ng build
 ```
-
-After downloading everything, it will fail during extraction of `gcc-4.3.6` because it downloaded it as an html file instead of the actual tarball. So just download it yourself from  
-https://mirrors.ocf.berkeley.edu/gnu/gcc/gcc-4.3.6/  
-
-Then:
-```sh
-cd .build/tarballs
-rm gcc-4.3.6
-mv ~/Downloads/gcc-4.3.6.tar.bz2 .
-cd ../src
-rm -rf gcc-4.3.6
-rm .gcc-4.3.6.extracting
-```
-
-Then run the build command again
 
 Both gcc-4.3.6 and glibc-2.10.1 need a small amount of patching to make them compilable  
 
@@ -154,8 +138,8 @@ Patch to glibc:
 
 After building for the final time:
 ```sh
-~/x-tools/mips-malta-linux-gnu/bin/mips-malta-linux-gnu-gcc --version
-# mips-malta-linux-gnu-gcc (crosstool-NG 1.21.0) 4.3.6
+~/x-tools/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-gcc --version
+# arm-unknown-linux-gnueabi-gcc (crosstool-NG 1.21.0) 4.3.6
 ```
 
 <br />
@@ -165,21 +149,31 @@ After building for the final time:
 ```sh
 cd path/to/linux-2.6.32.16
 
-export ARCH=mips
-export CROSS_COMPILE=/home/user/x-tools/mips-malta-linux-gnu/bin/mips-malta-linux-gnu-
+export ARCH=arm
+export CROSS_COMPILE=/home/user/x-tools/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-
 
-ls arch/mips/configs/ | grep malta
-make malta_defconfig
+ls arch/arm/configs | grep versatile
+make versatile_defconfig
 
 make menuconfig
 ```
 
-Menuconfig changes:
+Menuconfig changes (These will have to be made in this order):
 ```
-Endianess selection (Big endian)
+File systems > Pseudo filesystems > [*] Virtual memory file system support
 Device Drivers > Generic Driver Options > [*] Create a kernel maintained /dev tmpfs (EXPERIMENTAL)
 Device Drivers > Generic Driver Options > [*] Automount devtmpfs at /dev  
+
+Bus support > [*] PCI support
+Device Drivers > <*> ATA/ATAPI/MFM/RLL support
+Device Drivers > SCSI device support > -*- SCSI device support
+Device Drivers > SCSI device support > <*> SCSI disk support
+Device Drivers > SCSI device support > <*> SCSI generic support
+Device Drivers > <*> Serial ATA (prod) and Parallel ATA (experimental drivers) > <*> AHCI SATA support
+
+Kernel Features > [*] Use the ARM EABI to compile the kernel
 ```
+
 
 Patch the dumb perl script:
 ```patch
@@ -202,7 +196,9 @@ make
 
 ```sh
 file vmlinux
-# vmlinux: ELF 32-bit MSB executable, MIPS, MIPS32 rel2...
+# vmlinux: ELF 32-bit LSB executable, ARM, EABI4 version 1 (SYSV) ...
+
+ls -la ./arch/arm/boot/zImage
 ```
 
 <br />
@@ -217,8 +213,8 @@ I downloaded `buildroot-2022.11.tar.gz`
 tar -xzvf buildroot-2022.11.tar.gz
 cd buildroot-2022.11
 
-ls configs/ | grep malta
-make qemu_mips32r2_malta_defconfig
+ls configs | grep arm
+make qemu_arm_versatile_defconfig
 
 make menuconfig
 ```
@@ -227,11 +223,12 @@ Menuconfig changes:
 ```
 Toolchain > Toolchain type (External toolchain)
 Toolchain > Toolchain (Custom toolchain)
-Set Toolchain path to /home/user/x-tools/mips-malta-linux-gnu/
-Toolchain > (mips-malta-linux-gnu) Toolchain prefix
+Set Toolchain path to /home/user/x-tools/arm-unknown-linux-gnueabi/
+Toolchain > (arm-unknown-linux-gnueabi) Toolchain prefix
 Toolchain > External toolchain gcc version (4.3.x)
 Toolchain > External toolchain C library (glibc)
 Toolchain > [] Toolchain has SSP support (**unselect it...)
+Toolchain > [*] Toolchain has C++ support?
 
 Kernel > [] Linux kernel (**unselect it...)
 ```
@@ -250,10 +247,12 @@ ls output/images/rootfs.ext2
 ## Qemu Run Command
 
 ```sh
-qemu-system-mips \
-    -M malta -nographic \
-    -kernel /home/user/Documents/linux-2.6.32.16/vmlinux \
-    -drive file=/home/user/Documents/buildroot-2022.11/output/images/rootfs.ext2,format=raw \
-    -append "root=/dev/hda console=ttyS0" \
-    -net nic,model=pcnet
+qemu-system-arm \
+	-M versatilepb -nographic \
+	-kernel ./zImage \
+	-append "root=/dev/sda rw console=ttyAMA0" \
+	-device ahci,id=ahci \
+	-device ide-hd,drive=mydrive,bus=ahci.0 \
+	-drive file=rootfs.ext2,if=none,id=mydrive,format=raw
 ```
+
