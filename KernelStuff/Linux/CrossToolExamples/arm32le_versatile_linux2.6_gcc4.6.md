@@ -1,6 +1,6 @@
 # Arm 32 LE versatilepb Linux 2.6.32 Build
 
-The goal is to build a cross-compilation toolchain for Arm32 LE cortex-a9 with crosstool-ng. Then, to build a Linux 6.16 kernel for an emulated vexpress board. Finally, to build a simple rootfs for that kernel with buildroot  
+The goal is to build a cross-compilation toolchain for Arm32 LE cortex-a9 with crosstool-ng. Then, to build a Linux 2.6.32 kernel for an emulated vexpress board. Finally, to build a simple rootfs for that kernel with buildroot  
 
 This was all done in an Ubuntu 22.04 VM  
 
