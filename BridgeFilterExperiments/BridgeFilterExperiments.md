@@ -2,13 +2,19 @@
 
 I was trying to figure out if a raw `PACKET_SOCKET` on a slave interface would see frames before its bridge's bridgefilter hooks dropped them  
 
-I was doing this testing with Linux 2.6.32 The answer is *sometimes*  
+I was doing this testing with Linux 2.6.32. The answer is yes.  
+I got very confused, because I didn't notice that the ARP was being dropped, so my host never actually sent the packet
 
-The hook on `NF_BR_PRE_ROUTING` caused the bridgefilter to drop the frame *before* the raw socket ever saw it. The rest of the hooks, `NF_BR_FORWARD` , `NF_BR_LOCAL_IN` , `NF_BR_LOCAL_OUT` , and `NF_BR_POST_ROUTING` took effect after the raw socket saw the frame  
+**Test Sequence:**
 
-I was using a basic ESP SPI snooping utility to test this  
+On Host:
+```sh
+# ARP just gets dropped, so need this
+sudo ip neigh add 10.86.1.10 lladdr 52:54:00:12:34:56 dev tap0 nud permanent
+```
 
-Test Sequence:
+Then, on guest:
+
 ```sh
 brctl addbr br0
 brctl addif br0 eth0
@@ -26,5 +32,4 @@ insmod bridgefilter_drop.ko
 ./raw_sock_spi_snoop eth0 0x12345678
 ```
 
-Without `NF_BR_PRE_ROUTING`, the spi snooper sees the frames before they are dropped  
-With `NF_BR_PRE_ROUTING`, the spi snooper does not see the frames
+The packet socket beats the bridge filter
